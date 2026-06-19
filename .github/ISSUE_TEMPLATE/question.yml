@@ -1,0 +1,24 @@
+name: Question / Support
+about: Ask a question or request support
+title: "[QUESTION] "
+labels: question
+assignees: ''
+
+---
+
+**Question**
+Clearly state your question.
+
+**Context**
+Provide relevant context about your setup:
+- What are you trying to achieve?
+- What have you tried so far?
+- What documentation have you reviewed?
+
+**Environment**
+- OS: [e.g. Windows 11, Ubuntu 22.04]
+- Docker Version: [if applicable]
+- Project Version: [e.g. v2.1.0]
+
+**Additional Information**
+Add any other details that might help us answer your question.

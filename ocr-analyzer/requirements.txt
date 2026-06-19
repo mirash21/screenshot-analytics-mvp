@@ -1,0 +1,8 @@
+pytesseract
+Pillow
+psycopg2-binary
+opencv-python-headless
+google-auth
+google-auth-oauthlib
+google-api-python-client
+easyocr

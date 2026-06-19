@@ -1,0 +1,110 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+
+# SQLite & Database
+*.db
+*.db-journal
+*.wal
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Docker
+docker-compose.override.yml
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Google Service Account credentials
+config/service_account.json
+config/*.json
+*.json
+
+# Storage data (keep directory structure but not content)
+storage/screenshots/*
+storage/database/*
+storage/uploads/*
+!storage/.gitkeep
+!storage/screenshots/.gitkeep
+!storage/database/.gitkeep
+
+# Incoming files
+incoming/*
+!incoming/.gitkeep
+
+# Test coverage
+htmlcov/
+.coverage
+coverage.xml
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Poetry
+poetry.lock
+.pypoetry/
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+
+# Pyre type checker
+.pyre/

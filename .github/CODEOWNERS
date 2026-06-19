@@ -1,0 +1,15 @@
+# Default owners for everything in the repo
+*       @YOUR_USERNAME
+
+# Core maintainers
+data-collector/    @YOUR_USERNAME
+ocr-analyzer/      @YOUR_USERNAME
+dashboard/         @YOUR_USERNAME
+db-init/           @YOUR_USERNAME
+
+# Documentation
+*.md              @YOUR_USERNAME
+docs/             @YOUR_USERNAME
+
+# CI/CD
+.github/          @YOUR_USERNAME

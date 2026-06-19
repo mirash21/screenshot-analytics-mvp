@@ -1,0 +1,137 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  PYTHON_VERSION: '3.11'
+  POSTGRES_USER: admin
+  POSTGRES_PASSWORD: test_password
+  POSTGRES_DB: screenshot_analytics
+
+jobs:
+  lint-and-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: screenshot_analytics
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install system dependencies (Tesseract & OpenCV)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          tesseract-ocr \
+          tesseract-ocr-rus \
+          libgl1 \
+          libglib2.0-0 \
+          libsm6 \
+          libxext6 \
+          libxrender-dev
+    
+    - name: Install Python dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r ocr-analyzer/requirements.txt
+        pip install -r data-collector/requirements.txt
+    
+    - name: Initialize database
+      run: |
+        PGPASSWORD=test_password psql -h localhost -U admin -d screenshot_analytics -f db-init/init.sql
+    
+    - name: Run OCR classifier tests
+      run: |
+        echo "Running test suite..."
+        python scripts/test_1c_context.py
+        python scripts/test_browser_details.py
+        python scripts/test_bitrix_detection.py
+        python scripts/test_russian_business.py
+        echo "✅ All tests passed!"
+    
+    - name: Check code style (flake8)
+      run: |
+        pip install flake8
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 ocr-analyzer/ data-collector/ dashboard/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings
+        flake8 ocr-analyzer/ data-collector/ dashboard/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        
+    - name: Security check (bandit)
+      run: |
+        pip install bandit
+        bandit -r ocr-analyzer/ data-collector/ dashboard/ -f json -o bandit-report.json || true
+      continue-on-error: true
+
+  docker-build:
+    name: Docker Build & Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker images
+      run: |
+        echo "Building Docker images..."
+        docker-compose build
+        echo "✅ Docker build successful!"
+    
+    - name: Test Docker containers start
+      run: |
+        echo "Starting containers..."
+        docker-compose up -d
+        echo "Waiting for services to initialize..."
+        sleep 30
+        docker-compose ps
+        echo "Checking container health..."
+        docker-compose logs --tail=50
+        docker-compose down
+        echo "✅ Docker containers test passed!"
+
+  documentation-check:
+    name: Documentation Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check README exists and is not empty
+      run: |
+        if [ ! -s README.md ]; then
+          echo "❌ README.md is missing or empty"
+          exit 1
+        fi
+        echo "✅ README.md exists and has content"
+    
+    - name: Validate markdown links
+      uses: gaurav-nelson/github-action-markdown-link-check@v1
+      with:
+        use-quiet-mode: 'yes'
+        use-verbose-mode: 'yes'
+      continue-on-error: true

@@ -1,0 +1,133 @@
+version: '3.8'
+
+services:
+  # PostgreSQL база данных
+  postgres:
+    image: postgres:16-alpine
+    container_name: screenshot-postgres
+    environment:
+      POSTGRES_DB: screenshot_analytics
+      POSTGRES_USER: ${DB_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db-init/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - analytics-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d screenshot_analytics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Модуль сбора данных
+  data-collector:
+    build: ./data-collector
+    container_name: screenshot-collector
+    volumes:
+      - ./storage:/app/storage
+      # Монтирование папки со скриншотами (измените путь под вашу систему)
+      # Для Windows: D:/Скрин:/app/incoming:ro
+      # Для Linux: /path/to/screenshots:/app/incoming:ro
+      - ./Skrins:/app/incoming:ro
+    environment:
+      - DB_TYPE=postgresql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=screenshot_analytics
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - UPLOAD_DIR=/app/incoming
+      - SCREENSHOTS_DIR=/app/storage/screenshots
+      - SCAN_INTERVAL_SECONDS=300
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - analytics-network
+
+  # Модуль OCR анализа
+  ocr-analyzer:
+    build: ./ocr-analyzer
+    container_name: screenshot-analyzer
+    volumes:
+      - ./storage:/app/storage
+      # Google Service Account ключ (опционально)
+      - ./config:/app/config:ro
+    environment:
+      - DB_TYPE=postgresql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=screenshot_analytics
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - SCREENSHOTS_DIR=/app/storage/screenshots
+      # Настройки OCR движка
+      - OCR_ENGINE=${OCR_ENGINE:-TESSERACT}
+      - TESSERACT_LANG=rus+eng
+      - EASYOCR_MIN_CONFIDENCE=${EASYOCR_MIN_CONFIDENCE:-0.3}
+      - OCR_CACHE_ENABLED=${OCR_CACHE_ENABLED:-true}
+      - OCR_CACHE_TTL_SECONDS=${OCR_CACHE_TTL_SECONDS:-86400}
+      - OCR_CACHE_MAX_ITEMS=${OCR_CACHE_MAX_ITEMS:-1000}
+      - OCR_CACHE_FILE=/app/storage/ocr_cache.json
+      - BATCH_SIZE=10
+      - PROCESSING_INTERVAL=60
+      - LOG_LEVEL=INFO
+      # Google Sheets настройки
+      - GOOGLE_SERVICE_ACCOUNT_FILE=${GOOGLE_SERVICE_ACCOUNT_FILE:-/app/config/service_account.json}
+      - GOOGLE_SPREADSHEET_ID=${GOOGLE_SPREADSHEET_ID:-}
+      - GOOGLE_SHEET_NAME=${GOOGLE_SHEET_NAME:-Лист1}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - analytics-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+
+  # Дашборд Streamlit
+  dashboard:
+    build: ./dashboard
+    container_name: screenshot-dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./storage:/app/storage
+    environment:
+      - DB_TYPE=postgresql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=screenshot_analytics
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}
+      - AUTH_SALT=${AUTH_SALT}
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      data-collector:
+        condition: service_started
+      ocr-analyzer:
+        condition: service_started
+    networks:
+      - analytics-network
+
+networks:
+  analytics-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
